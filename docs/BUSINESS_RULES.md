@@ -1,92 +1,249 @@
-# BR-01
-## Create trade
-### Description
-A Trade is created whenever the broker confirms the order executed.
-### Trigger
-User clicks 'Save Trade'
-### Inputs
-Client name,
-Trade type,
-Script,
-Quantity,
-Price,
-Trade date,
-Broker fee,
-Client brokerage,
-Remarks
-### Processing
-1. Validate required fields.
-2. Create Trade Object
-3. Calculate gross value
-4. Store the trade
-### Outputs
-Trade successfully created
-### Validation
-Quantity > 0
-Price > 0
-Client exists
-### Exceptions
-If validation fails.
-Trade is not created.
-Show validation error.
+# Business Rules
 
-# BR-002
-## Gross Value
-### Description
-Gross Value represents the total value of the trade before brokerage.
-### Formula
+## BR-01
+### Create Trade
+
+#### Description
+Creates a trade when the broker confirms that a client's buy/sell order has been executed.
+
+#### Inputs
+- Client Name
+- Broker Name
+- Symbol
+- Trade Type (BUY / SELL)
+- Trade Date
+- Price
+- Quantity
+- Brokerage
+- Service Fee
+- Expiry (Optional)
+- Remarks
+
+#### Output
+Trade is successfully recorded.
+
+---
+
+## BR-02
+### Edit Trade
+
+#### Description
+Allows an existing trade to be modified if incorrect details were entered.
+
+#### Inputs
+- Trade ID
+- Updated Trade Details
+
+#### Output
+Trade is updated and all dependent calculations are refreshed.
+
+---
+
+## BR-03
+### Delete Trade
+
+#### Description
+Deletes an existing trade from the ledger.
+
+#### Inputs
+- Trade ID
+
+#### Output
+Trade is removed and all dependent calculations are refreshed.
+
+---
+
+## BR-04
+### Calculate Gross Value
+
+#### Description
+Calculates the total value of a trade before any charges.
+
+#### Formula
+
+```
 Gross Value = Quantity × Price
-### Inputs
-Quantity
-Price
-### Output
+```
+
+#### Inputs
+- Quantity
+- Price
+
+#### Output
 Gross Value
-### Validation
-Quantity > 0
-Price > 0
 
-# BR-003
-## Client Brokerage
-### Description
-Brokerage charged to the client.
-### Inputs
-Gross Value
-Brokerage Rate
-Manual Override
-### Processing
-If Manual Override exists
-Use Manual Override
+---
+
+## BR-05
+### Calculate Service Fee
+
+#### Description
+Calculates the service fee charged to the client.
+
+#### Inputs
+- Gross Value
+- Service Fee Rate
+- Manual Service Fee (Optional)
+
+#### Output
+Service Fee
+
+---
+
+## BR-06
+### Calculate Net Settlement
+
+#### Description
+Calculates the actual cash impact of a trade.
+
+#### Formula
+
+BUY
+
+```
+Net Settlement = Gross Value + Service Fee
+```
+
+SELL
+
+```
+Net Settlement = Gross Value - Service Fee
+```
+
+#### Inputs
+- Trade Type
+- Gross Value
+- Service Fee
+
+#### Output
+Net Settlement
+
+---
+
+## BR-07
+### Calculate Running Balance
+
+#### Description
+Calculates the client's latest balance after every trade or cash transaction.
+
+#### Inputs
+- Previous Balance
+- Net Settlement
+- Cash Deposits
+- Cash Withdrawals
+- Manual Adjustments
+
+#### Output
+Updated Client Balance
+
+---
+
+## BR-08
+### Record Cash Transaction
+
+#### Description
+Records any deposit, withdrawal or manual adjustment made by the client.
+
+#### Inputs
+- Client Name
+- Transaction Type (Deposit / Withdrawal / Adjustment)
+- Amount
+- Transaction Date
+- Remarks
+
+#### Output
+Cash transaction is recorded and client balance is updated.
+
+---
+
+## BR-09
+### Determine Position Status
+
+#### Description
+Determines whether a position is Open or Closed.
+
+#### Formula
+
+```
+Net Quantity = Total Bought Quantity - Total Sold Quantity
+```
+
+If
+
+```
+Net Quantity = 0
+```
+
+Position Status = **Closed**
+
 Else
-Brokerage = Gross Value × Brokerage Rate
-### Output
-Client Brokerage
 
-# BR-004
-## Balance Calculation
-### Description
-Calculates the client's current balance.
-### Inputs
-Opening Balance
-Trade Settlements
-Cash Deposits
-Cash Withdrawals
-### Formula
-Closing Balance = Opening Balance + Trade Settlements + Cash Deposits - Cash Withdrawals
-### Output
-Closing Balance
+Position Status = **Open**
 
-# BR-005
-## Open Position
-### Description
-A trade remains open until it has been squared off.
-### Processing
-If Exit Trade exists
-    Status = CLOSED
-Else
-    Status = OPEN
+#### Inputs
+- Buy Quantity
+- Sell Quantity
 
+#### Output
+Position Status
 
+---
 
+## BR-10
+### Calculate Profit / Loss
 
+#### Description
+Calculates the realised profit or loss for closed positions.
 
+#### Formula
 
+```
+P/L = (Sell Price - Buy Price) × Closed Quantity
+```
+
+#### Inputs
+- Buy Price
+- Sell Price
+- Closed Quantity
+
+#### Output
+Profit / Loss
+
+---
+
+## BR-11
+### Generate Client Statement
+
+#### Description
+Generates a statement for a selected client and date range.
+
+#### Inputs
+- Client Name
+- Date Range
+
+#### Output
+Statement containing:
+- Trades
+- Cash Transactions
+- Open Positions
+- Closed Positions
+- Running Balance
+
+---
+
+## BR-12
+### Validate Trade
+
+#### Description
+Validates all mandatory trade information before saving.
+
+#### Validation
+- Client must exist.
+- Quantity must be greater than 0.
+- Price must be greater than 0.
+- Trade Type must be BUY or SELL.
+- Trade Date is mandatory.
+
+#### Output
+Trade is saved if validation succeeds.
+Otherwise, an appropriate validation error is displayed.
