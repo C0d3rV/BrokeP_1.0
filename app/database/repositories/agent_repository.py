@@ -1,5 +1,5 @@
-from database.connection import create_connection
-from domain.entities.agent import Agent
+from app.database.connection import create_connection
+from app.domain.entities.agent import Agent
 
 def _row_to_agent(row) -> Agent:
     return Agent(*row)

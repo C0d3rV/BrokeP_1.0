@@ -1,5 +1,5 @@
-from database.repositories import cash_repository, client_repository
-from domain.validators.cash_validator import validate_cash_transaction
+from app.database.repositories import cash_repository, client_repository
+from app.domain.validators.cash_validator import validate_cash_transaction
 
 
 def _record(client_id: int, txn_date: str, txn_type: str, amount: float, remarks: str = None) -> int:

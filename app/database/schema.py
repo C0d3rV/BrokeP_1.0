@@ -1,4 +1,4 @@
-from database.connection import create_connection
+from app.database.connection import create_connection
 
 
 
@@ -8,7 +8,7 @@ TABLE_DEFINITIONS = {
     "clients": """
         client_id   INTEGER PRIMARY KEY AUTOINCREMENT,
         name        TEXT NOT NULL,
-        created_at  TEXT NOT NULL,
+        created_at  TEXT NOT NULL
     """,
     "trades": """
         trade_id        INTEGER PRIMARY KEY AUTOINCREMENT,

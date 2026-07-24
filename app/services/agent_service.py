@@ -1,5 +1,5 @@
-from database.repositories import agent_repository
-from domain.validators.agent_validator import validate_agent
+from app.database.repositories import agent_repository
+from app.domain.validators.agent_validator import validate_agent
 
 def create_agent(name: str, brokerage_rate: float) -> int:
     validate_agent(name, brokerage_rate)

@@ -1,5 +1,5 @@
-from database.connection import create_connection
-from domain.entities.cash import Cash
+from app.database.connection import create_connection
+from app.domain.entities.cash import Cash
 
 def _row_to_cash_txn(row) -> Cash:
     return Cash(*row)

@@ -1,6 +1,6 @@
-from database.repositories import trade_repository, client_repository, agent_repository
-from domain.validators.trade_validator import validate_trade_entry, validate_trade_close
-from domain.calculations.pnl import gross_value, brokerage, gross_pl, net_pl
+from app.database.repositories import trade_repository, client_repository, agent_repository
+from app.domain.validators.trade_validator import validate_trade_entry, validate_trade_close
+from app.domain.calculations.pnl import gross_value, brokerage, gross_pl, net_pl
 
 
 def open_trade(client_id: int, agent_id: int, segment: str, symbol: str,

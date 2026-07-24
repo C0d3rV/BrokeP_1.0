@@ -1,5 +1,5 @@
-from database.repositories import client_repository
-from domain.validators.client_validator import validate_client
+from app.database.repositories import client_repository
+from app.domain.validators.client_validator import validate_client
 
 def create_client(name: str) -> int:
     validate_client(name)

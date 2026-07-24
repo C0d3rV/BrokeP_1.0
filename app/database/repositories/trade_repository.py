@@ -1,5 +1,5 @@
-from database.connection import create_connection
-from domain.entities.trade import Trade
+from app.database.connection import create_connection
+from app.domain.entities.trade import Trade
 
 def _row_to_trade(row) -> Trade:
     return Trade(*row)
@@ -16,7 +16,7 @@ def open_trade(client_id: int, agent_id: int, segment: str, symbol: str, quantit
             """INSERT INTO trades (
                    client_id, agent_id, segment, symbol, quantity,
                    entry_date, entry_price, entry_brokerage, status, remarks
-               ) VALUES (?, ?, ?, ?, ?, ?, ?, 'OPEN', ?)""",
+               ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'OPEN', ?)""",
             (client_id, agent_id, segment, symbol, quantity, entry_date,
              entry_price, entry_brokerage, remarks)
         )

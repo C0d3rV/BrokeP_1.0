@@ -1,5 +1,5 @@
-from database.connection import create_connection
-from domain.entities.client import Client
+from app.database.connection import create_connection
+from app.domain.entities.client import Client
 from datetime import datetime, timezone
 
 def _row_to_client(row) -> Client:
