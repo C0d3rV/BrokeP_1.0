@@ -4,7 +4,7 @@ from domain.entities.trade import Trade
 def _row_to_trade(row) -> Trade:
     return Trade(*row)
 
-def open_trade(client_id: int, segment: str, symbol: str, quantity: int,
+def open_trade(client_id: int, agent_id: int, segment: str, symbol: str, quantity: int,
                entry_date: str, entry_price: float, entry_brokerage: float,
                remarks: str = None) -> int:
     """Inserts a new OPEN trade. Returns the new trade_id.
@@ -14,10 +14,10 @@ def open_trade(client_id: int, segment: str, symbol: str, quantity: int,
     try:
         cursor.execute(
             """INSERT INTO trades (
-                   client_id, segment, symbol, quantity,
+                   client_id, agent_id, segment, symbol, quantity,
                    entry_date, entry_price, entry_brokerage, status, remarks
                ) VALUES (?, ?, ?, ?, ?, ?, ?, 'OPEN', ?)""",
-            (client_id, segment, symbol, quantity, entry_date,
+            (client_id, agent_id, segment, symbol, quantity, entry_date,
              entry_price, entry_brokerage, remarks)
         )
         con.commit()

@@ -4,6 +4,7 @@ from dataclasses import dataclass
 class Trade:
     trade_id: int
     client_id: int
+    agent_id: int | None
     segment: str
     symbol: str
     quantity: int

@@ -13,6 +13,7 @@ TABLE_DEFINITIONS = {
     "trades": """
         trade_id        INTEGER PRIMARY KEY AUTOINCREMENT,
         client_id       INTEGER NOT NULL REFERENCES clients(client_id),
+        agent_id        INTEGER REFERENCES agents(agent_id),
         segment         TEXT NOT NULL,
         symbol          TEXT NOT NULL,
         quantity        INTEGER NOT NULL,
@@ -36,6 +37,11 @@ TABLE_DEFINITIONS = {
         amount      REAL NOT NULL,
         remarks     TEXT
     """,
+    "agents": """
+        agent_id  INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL,
+        brokerage_rate REAL NOT NULL
+    """
 }
 
 
