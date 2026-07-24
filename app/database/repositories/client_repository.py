@@ -1,4 +1,4 @@
-from database.connection import get_connection
+from database.connection import create_connection
 from domain.entities.client import Client
 from datetime import datetime, timezone
 
@@ -7,7 +7,7 @@ def _row_to_client(row) -> Client:
 
 def insert_client(name: str) -> int:
     """Returns the new client_id."""
-    con, cursor = get_connection()
+    con, cursor = create_connection()
     try:
         cursor.execute(
             "INSERT INTO clients (name, created_at) VALUES (?, ?)",
@@ -19,7 +19,7 @@ def insert_client(name: str) -> int:
         con.close()
 
 def get_client_by_id(client_id: int) -> Client | None:
-    con, cursor = get_connection()
+    con, cursor = create_connection()
     try:
         cursor.execute("SELECT * FROM clients WHERE client_id = ?", (client_id,))
         row = cursor.fetchone()
@@ -28,7 +28,7 @@ def get_client_by_id(client_id: int) -> Client | None:
         con.close()
 
 def get_all_clients() -> list[Client]:
-    con, cursor = get_connection()
+    con, cursor = create_connection()
     try:
         cursor.execute("SELECT * FROM clients ORDER BY name")
         return [_row_to_client(r) for r in cursor.fetchall()]
@@ -36,7 +36,7 @@ def get_all_clients() -> list[Client]:
         con.close()
 
 def search_clients_by_name(query: str) -> list[Client]:
-    con, cursor = get_connection()
+    con, cursor = create_connection()
     try:
         cursor.execute(
             "SELECT * FROM clients WHERE name LIKE ? ORDER BY name",
