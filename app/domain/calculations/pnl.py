@@ -1,3 +1,10 @@
+# domain/calculations/pnl.py
+
+def gross_value(price: float, quantity: int) -> float:
+    """FR-04"""
+    return price * quantity
+
+
 def brokerage(buy_value: float, sell_value: float,
               rate: float = None, manual_override: float = None) -> float:
     """
@@ -14,3 +21,20 @@ def brokerage(buy_value: float, sell_value: float,
     if rate is None:
         raise ValueError("Either rate or manual_override must be provided")
     return round((buy_value + sell_value) * (rate / 100), 2)
+
+
+def gross_pl(entry_price: float, exit_price: float, quantity: int) -> float:
+    """FR-08"""
+    return (exit_price - entry_price) * quantity
+
+
+def net_pl(gross_pl_val: float, entry_brokerage: float,
+           exit_brokerage: float, service_fee: float = 0) -> float:
+    """FR-09"""
+    return gross_pl_val - entry_brokerage - exit_brokerage - service_fee
+
+
+def running_balance(previous: float, deposits: float, withdrawals: float,
+                     net_pl_val: float, adjustments: float = 0) -> float:
+    """§6"""
+    return previous + deposits - withdrawals + net_pl_val + adjustments
