@@ -6,10 +6,11 @@ BrokerP_SRS_v2.md.pdf
 *.pdf
 
 # Ignore virtual environments, caches, and database files
+venv/
 __pycache__/
+*.pyc
 .pytest_cache/
 *.db
-*.sqlite3
 
 # Ignore environment/secret files
 .env
