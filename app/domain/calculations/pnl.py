@@ -28,10 +28,10 @@ def gross_pl(entry_price: float, exit_price: float, quantity: int) -> float:
     return (exit_price - entry_price) * quantity
 
 
-def net_pl(gross_pl_val: float, entry_brokerage: float,
-           exit_brokerage: float, service_fee: float = 0) -> float:
+def net_pl(gross_pl_val: float, entry_brokerage: float, exit_brokerage: float,
+           entry_service_fee: float = 0, exit_service_fee: float = 0) -> float:
     """FR-09"""
-    return gross_pl_val - entry_brokerage - exit_brokerage - service_fee
+    return gross_pl_val - entry_brokerage - exit_brokerage - entry_service_fee - exit_service_fee
 
 
 def running_balance(previous: float, deposits: float, withdrawals: float,

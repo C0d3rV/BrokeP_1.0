@@ -5,8 +5,8 @@ from app.domain.calculations.pnl import gross_value, brokerage, gross_pl, net_pl
 
 def open_trade(client_id: int, agent_id: int, segment: str, symbol: str,
                quantity: int, entry_date: str, entry_price: float,
-               manual_brokerage: float = None, remarks: str = None) -> int:
-    """FR-02, FR-03, FR-04, FR-05, FR-06"""
+               manual_brokerage: float = None, entry_service_fee: float = 0,
+               remarks: str = None) -> int:
     validate_trade_entry(client_id, agent_id, segment, symbol,
                           quantity, entry_price, entry_date)
 
@@ -26,13 +26,13 @@ def open_trade(client_id: int, agent_id: int, segment: str, symbol: str,
     return trade_repository.open_trade(
         client_id=client_id, agent_id=agent_id, segment=segment, symbol=symbol,
         quantity=quantity, entry_date=entry_date, entry_price=entry_price,
-        entry_brokerage=entry_brokerage, remarks=remarks
+        entry_brokerage=entry_brokerage, entry_service_fee=entry_service_fee,
+        remarks=remarks
     )
 
 
 def close_trade(trade_id: int, exit_date: str, exit_price: float,
-                 service_fee: float = 0, manual_brokerage: float = None) -> None:
-    """FR-07, FR-08, FR-09, FR-10"""
+                 exit_service_fee: float = 0, manual_brokerage: float = None) -> None:
     validate_trade_close(exit_price, exit_date)
 
     trade = trade_repository.get_trade_by_id(trade_id)
@@ -52,11 +52,12 @@ def close_trade(trade_id: int, exit_date: str, exit_price: float,
     )
 
     gpl = gross_pl(trade.entry_price, exit_price, trade.quantity)
-    npl = net_pl(gpl, trade.entry_brokerage, exit_brokerage, service_fee)
+    npl = net_pl(gpl, trade.entry_brokerage, exit_brokerage,
+                 trade.entry_service_fee, exit_service_fee)
 
     trade_repository.close_trade(
         trade_id=trade_id, exit_date=exit_date, exit_price=exit_price,
-        exit_brokerage=exit_brokerage, service_fee=service_fee,
+        exit_brokerage=exit_brokerage, exit_service_fee=exit_service_fee,
         gross_pl=gpl, net_pl=npl
     )
 
@@ -70,10 +71,8 @@ def get_closed_trades_for_client(client_id: int):
 
 
 def list_all_open_trades():
-    """FR-14"""
     return trade_repository.get_all_open_trades()
 
 
 def list_all_closed_trades():
-    """FR-15"""
     return trade_repository.get_all_closed_trades()

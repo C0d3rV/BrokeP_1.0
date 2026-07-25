@@ -1,7 +1,7 @@
 import customtkinter as ctk
 from tkinter import ttk
 
-FONT_FAMILY = "Antic"
+FONT_FAMILY = "Roboto"
 
 # --- Palette ---
 PRIMARY = "#3B5BDB"
