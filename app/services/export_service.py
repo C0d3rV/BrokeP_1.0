@@ -105,3 +105,60 @@ def export_trades_to_pdf(trades, client_name_lookup, agent_name_lookup,
     ]))
     elements.append(table)
     doc.build(elements)
+
+
+def generate_filename(client_name: str, report_type: str, ext: str) -> str:
+    from datetime import datetime
+    safe_client = client_name.replace(" ", "_")
+    safe_type = report_type.replace(" ", "_")
+    timestamp = datetime.now().strftime("%Y-%m-%d_%H%M%S")
+    return f"{safe_client}_{safe_type}_{timestamp}.{ext}"
+
+
+DAILY_HEADERS = ["Client", "Symbol", "Expiry", "Qty", "Entry Price", "Closing Price", "Unrealized P&L"]
+
+
+def _daily_row(trade, mark, client_name: str):
+    closing = mark.closing_price if mark else "-"
+    unrealized = mark.unrealized_net_pl if mark else "-"
+    return [client_name, trade.symbol, trade.expiry_date or "-", trade.quantity,
+            trade.entry_price, closing, unrealized]
+
+
+def export_daily_snapshot_to_excel(trades_with_marks, client_name: str, filepath: str) -> None:
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Daily Snapshot"
+    ws.append(DAILY_HEADERS)
+    header_fill = PatternFill(start_color="3B5BDB", end_color="3B5BDB", fill_type="solid")
+    for cell in ws[1]:
+        cell.font = Font(bold=True, color="FFFFFF")
+        cell.fill = header_fill
+        cell.alignment = Alignment(horizontal="center")
+    for trade, mark in trades_with_marks:
+        ws.append(_daily_row(trade, mark, client_name))
+    for col in ws.columns:
+        max_len = max((len(str(c.value)) for c in col if c.value is not None), default=10)
+        ws.column_dimensions[col[0].column_letter].width = max_len + 3
+    ws.freeze_panes = "A2"
+    wb.save(filepath)
+
+
+def export_daily_snapshot_to_pdf(trades_with_marks, client_name: str, filepath: str) -> None:
+    doc = SimpleDocTemplate(filepath, pagesize=landscape(A4),
+                             leftMargin=1.2 * cm, rightMargin=1.2 * cm)
+    styles = getSampleStyleSheet()
+    elements = [Paragraph(f"Daily P&L Snapshot -- {client_name}", styles["Title"]), Spacer(1, 12)]
+    data = [DAILY_HEADERS] + [_daily_row(t, m, client_name) for t, m in trades_with_marks]
+    table = Table(data, repeatRows=1)
+    table.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#3B5BDB")),
+        ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+        ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+        ("FONTSIZE", (0, 0), (-1, -1), 8),
+        ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#D8DEE9")),
+        ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#F5F7FC")]),
+        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+    ]))
+    elements.append(table)
+    doc.build(elements)
