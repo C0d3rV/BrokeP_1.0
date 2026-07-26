@@ -1,5 +1,6 @@
 import customtkinter as ctk
 import traceback
+import os
 from app.ui.theme import font, configure_ttk_style, BG_APP, BG_CARD, PRIMARY, PRIMARY_HOVER, TEXT_MUTED
 
 NAV_ITEMS = [
@@ -15,6 +16,10 @@ class MainWindow(ctk.CTk):
         self.geometry("1200x760")
         self.minsize(1000, 640)
         self.configure(fg_color=BG_APP)
+
+        icon_path = os.path.join("assets", "icons", "logo.ico")
+        if os.path.exists(icon_path):
+            self.iconbitmap(icon_path)
 
         self.attributes("-alpha", 0.99) 
         self.after(100, lambda: self.attributes("-alpha", 1.0))
