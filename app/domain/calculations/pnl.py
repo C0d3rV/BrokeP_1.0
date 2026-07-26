@@ -38,3 +38,10 @@ def running_balance(previous: float, deposits: float, withdrawals: float,
                      net_pl_val: float, adjustments: float = 0) -> float:
     """§6"""
     return previous + deposits - withdrawals + net_pl_val + adjustments
+
+
+def unrealized_net_pl(gross_pl_val: float, entry_brokerage: float, entry_service_fee: float = 0) -> float:
+    """Mark-to-market P&L for a still-OPEN trade -- only costs actually
+    incurred so far (entry side) are deducted. Exit costs don't exist yet,
+    so they are never estimated or guessed at here."""
+    return gross_pl_val - entry_brokerage - entry_service_fee

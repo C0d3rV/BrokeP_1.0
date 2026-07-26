@@ -39,6 +39,15 @@ TABLE_DEFINITIONS = {
         amount      REAL NOT NULL,
         remarks     TEXT
     """,
+    "daily_marks": """
+    mark_id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    trade_id             INTEGER NOT NULL REFERENCES trades(trade_id),
+    mark_date            TEXT NOT NULL,
+    closing_price        REAL NOT NULL,
+    unrealized_gross_pl  REAL NOT NULL,
+    unrealized_net_pl    REAL NOT NULL,
+    UNIQUE(trade_id, mark_date)
+    """
 }
 
 

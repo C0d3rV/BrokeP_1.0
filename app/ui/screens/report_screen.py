@@ -1,14 +1,20 @@
 import customtkinter as ctk
+from tkinter import filedialog, messagebox
 
-from app.services import client_service, trade_service
-from app.ui.theme import font, PRIMARY, PRIMARY_HOVER, BG_CARD
+from app.services import client_service, agent_service, trade_service, export_service, backup_service
+from app.ui.theme import font, PRIMARY, PRIMARY_HOVER, SUCCESS, SUCCESS_HOVER, BG_CARD, TEXT_MUTED
 from app.ui.async_utils import run_in_background
 from app.ui.widgets.data_table import DataTable
 
 SEGMENTS = ["All segments", "EQUITY", "FNO", "COMMODITY"]
+
 COLUMNS = [
-    ("client", "Client", 120), ("symbol", "Symbol", 90), ("qty", "Qty", 70),
-    ("entry", "Entry", 100), ("exit", "Exit", 100), ("pnl", "Net P&L", 110), ("status", "Status", 90),
+    ("client", "Client", 100), ("agent", "Agent", 90), ("segment", "Segment", 85),
+    ("symbol", "Symbol", 80), ("qty", "Qty", 55),
+    ("entry_date", "Entry Dt", 85), ("entry_price", "Entry Rate", 85),
+    ("exit_date", "Exit Dt", 85), ("exit_price", "Exit Rate", 85),
+    ("brokerage", "Brokerage", 85), ("svc_fee", "Svc Fee", 75),
+    ("gross_pl", "Gross P&L", 85), ("net_pl", "Net P&L", 85), ("status", "Status", 70),
 ]
 
 
@@ -17,6 +23,8 @@ class ReportScreen(ctk.CTkFrame):
         super().__init__(parent, fg_color="transparent")
         self.app = app
         self.clients = []
+        self.agents = []
+        self.current_trades = []
 
         self.grid_columnconfigure(0, weight=0)
         self.grid_columnconfigure(1, weight=1)
@@ -48,7 +56,37 @@ class ReportScreen(ctk.CTkFrame):
         self.status_dropdown.pack(fill="x", padx=20)
 
         ctk.CTkButton(panel, text="Apply filters", font=font(13, "bold"), fg_color=PRIMARY,
-                      hover_color=PRIMARY_HOVER, command=self._apply_filters).pack(fill="x", padx=20, pady=20)
+                      hover_color=PRIMARY_HOVER, command=self._apply_filters).pack(fill="x", padx=20, pady=(20, 10))
+
+        ctk.CTkFrame(panel, height=1, fg_color=("gray80", "gray30")).pack(fill="x", padx=20, pady=10)
+
+        ctk.CTkLabel(panel, text="Export & backup", font=font(13, "bold")).pack(anchor="w", padx=20)
+
+        ctk.CTkLabel(panel, text="Copy type", font=font(12), text_color=TEXT_MUTED).pack(
+            anchor="w", padx=20, pady=(10, 2)
+        )
+        self.copy_type_selector = ctk.CTkSegmentedButton(
+            panel, values=["Client copy", "Broker copy"], font=font(12),
+            selected_color=PRIMARY, selected_hover_color=PRIMARY_HOVER
+        )
+        self.copy_type_selector.set("Client copy")
+        self.copy_type_selector.pack(fill="x", padx=20, pady=(0, 4))
+        ctk.CTkLabel(
+            panel, text="Broker copy hides service fee and\nexcludes it from Net P&L.",
+            font=font(10), text_color=TEXT_MUTED, justify="left"
+        ).pack(anchor="w", padx=20, pady=(0, 10))
+
+        ctk.CTkButton(panel, text="Export to Excel", font=font(12), fg_color="#1D6F42",
+                      hover_color="#155531", command=self._export_excel).pack(fill="x", padx=20, pady=(0, 6))
+        ctk.CTkButton(panel, text="Export to PDF", font=font(12), fg_color="#B7302B",
+                      hover_color="#93261F", command=self._export_pdf).pack(fill="x", padx=20)
+
+        self.backup_status_label = ctk.CTkLabel(panel, text="", font=font(10), text_color=TEXT_MUTED)
+        self.backup_status_label.pack(anchor="w", padx=20, pady=(14, 2))
+        ctk.CTkButton(panel, text="Backup now", font=font(12), fg_color=SUCCESS,
+                      hover_color=SUCCESS_HOVER, command=self._backup_now).pack(fill="x", padx=20, pady=(0, 20))
+
+        self._refresh_backup_label()
 
     def _build_results_panel(self):
         panel = ctk.CTkFrame(self, corner_radius=14, fg_color=BG_CARD)
@@ -59,7 +97,7 @@ class ReportScreen(ctk.CTkFrame):
         summary_row = ctk.CTkFrame(panel, fg_color="transparent")
         summary_row.grid(row=0, column=0, sticky="ew", padx=16, pady=(16, 8))
         self.summary_labels = {}
-        for key, label in [("count", "Trades"), ("pnl", "Net P&L"), ("brokerage", "Brokerage")]:
+        for key, label in [("count", "Trades"), ("pnl", "Net P&L"), ("brokerage", "Brokerage"), ("fees", "Service fees")]:
             card = ctk.CTkFrame(summary_row, corner_radius=10, fg_color=("#EDF1FC", "#242938"))
             card.pack(side="left", fill="both", expand=True, padx=6)
             ctk.CTkLabel(card, text=label, font=font(13), text_color=("gray30", "gray70")).pack(
@@ -77,12 +115,16 @@ class ReportScreen(ctk.CTkFrame):
         self.table.grid(row=0, column=0, sticky="nsew")
 
     def on_show(self):
-        run_in_background(self, work_fn=client_service.list_clients, on_done=self._apply_clients)
+        run_in_background(self, work_fn=self._fetch_reference_data, on_done=self._apply_reference_data)
+        self._refresh_backup_label()
 
-    def _apply_clients(self, result):
+    def _fetch_reference_data(self):
+        return client_service.list_clients(), agent_service.list_agents()
+
+    def _apply_reference_data(self, result):
         if isinstance(result, Exception):
             return
-        self.clients = result
+        self.clients, self.agents = result
         names = ["All clients"] + [c.name for c in self.clients]
         self.client_dropdown.configure(values=names)
         if self.client_dropdown.get() not in names:
@@ -122,22 +164,87 @@ class ReportScreen(ctk.CTkFrame):
         match = next((c for c in self.clients if c.client_id == client_id), None)
         return match.name if match else str(client_id)
 
+    def _agent_name(self, agent_id):
+        match = next((a for a in self.agents if a.agent_id == agent_id), None)
+        return match.name if match else str(agent_id)
+
     def _render_results(self, trades):
+        self.current_trades = trades
+
         total_pnl = sum(t.net_pl or 0 for t in trades)
         total_brokerage = sum((t.entry_brokerage or 0) + (t.exit_brokerage or 0) for t in trades)
+        total_fees = sum((t.entry_service_fee or 0) + (t.exit_service_fee or 0) for t in trades)
 
         self.summary_labels["count"].configure(text=str(len(trades)))
         self.summary_labels["pnl"].configure(text=f"₹{total_pnl:,.2f}")
         self.summary_labels["brokerage"].configure(text=f"₹{total_brokerage:,.2f}")
+        self.summary_labels["fees"].configure(text=f"₹{total_fees:,.2f}")
 
         rows = []
         for t in trades:
-            pnl_text = f"₹{t.net_pl:,.2f}" if t.net_pl is not None else "-"
+            brokerage_total = (t.entry_brokerage or 0) + (t.exit_brokerage or 0)
+            fee_total = (t.entry_service_fee or 0) + (t.exit_service_fee or 0)
+            gross_text = f"{t.gross_pl:,.2f}" if t.gross_pl is not None else "-"
+            net_text = f"{t.net_pl:,.2f}" if t.net_pl is not None else "-"
             rows.append((
-                self._client_name(t.client_id), t.symbol, str(t.quantity),
-                t.entry_date, t.exit_date or "-", pnl_text, t.status
+                self._client_name(t.client_id), self._agent_name(t.agent_id), t.segment,
+                t.symbol, str(t.quantity),
+                t.entry_date, f"{t.entry_price:,.2f}",
+                t.exit_date or "-", f"{t.exit_price:,.2f}" if t.exit_price is not None else "-",
+                f"{brokerage_total:,.2f}", f"{fee_total:,.2f}",
+                gross_text, net_text, t.status
             ))
         self.table.set_rows(rows)
+
+    def _copy_type(self) -> str:
+        return "client" if self.copy_type_selector.get() == "Client copy" else "broker"
+
+    def _export_excel(self):
+        if not self.current_trades:
+            messagebox.showinfo("Nothing to export", "No trades match the current filters.")
+            return
+        path = filedialog.asksaveasfilename(defaultextension=".xlsx",
+                                             filetypes=[("Excel file", "*.xlsx")],
+                                             initialfile="brokep_report.xlsx")
+        if not path:
+            return
+        try:
+            export_service.export_trades_to_excel(
+                self.current_trades, self._client_name, self._agent_name, path, self._copy_type()
+            )
+            messagebox.showinfo("Exported", f"Saved to {path}")
+        except Exception as e:
+            messagebox.showerror("Export failed", str(e))
+
+    def _export_pdf(self):
+        if not self.current_trades:
+            messagebox.showinfo("Nothing to export", "No trades match the current filters.")
+            return
+        path = filedialog.asksaveasfilename(defaultextension=".pdf",
+                                             filetypes=[("PDF file", "*.pdf")],
+                                             initialfile="brokep_report.pdf")
+        if not path:
+            return
+        try:
+            export_service.export_trades_to_pdf(
+                self.current_trades, self._client_name, self._agent_name, path, self._copy_type()
+            )
+            messagebox.showinfo("Exported", f"Saved to {path}")
+        except Exception as e:
+            messagebox.showerror("Export failed", str(e))
+
+    def _refresh_backup_label(self):
+        last = backup_service.last_backup_time()
+        text = f"Last backup: {last}" if last else "No backups yet"
+        self.backup_status_label.configure(text=text)
+
+    def _backup_now(self):
+        try:
+            path = backup_service.backup_now()
+            self._refresh_backup_label()
+            messagebox.showinfo("Backup complete", f"Saved to {path}")
+        except Exception as e:
+            messagebox.showerror("Backup failed", str(e))
 
 
 def build(parent, app) -> ctk.CTkFrame:

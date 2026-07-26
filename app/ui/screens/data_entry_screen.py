@@ -2,18 +2,19 @@ import customtkinter as ctk
 from tkinter import messagebox
 
 from app.services import client_service, agent_service, trade_service, cash_service
-from app.domain.calculations.pnl import gross_value
-from app.ui.widgets.date_picker import make_date_picker, set_date_value
+from app.domain.calculations.pnl import gross_value, brokerage, gross_pl, net_pl
 from app.ui.theme import font, PRIMARY, PRIMARY_HOVER, SUCCESS, SUCCESS_HOVER, DANGER, DANGER_HOVER, BG_CARD, TEXT_MUTED
 from app.ui.widgets.modal import Modal
 from app.ui.widgets.data_table import DataTable
+from app.ui.widgets.date_picker import make_date_picker, set_date_value
 
 SEGMENTS = ["EQUITY", "FNO", "COMMODITY"]
 TXN_TYPES = ["BUY", "SELL", "DEPOSIT", "WITHDRAWAL"]
 
 BATCH_COLUMNS = [
-    ("client", "Client", 110), ("type", "Type", 80), ("symbol", "Segment/Symbol", 140),
-    ("qty", "Qty", 60), ("price", "Price", 80), ("gross", "Gross", 100),
+    ("client", "Client", 100), ("type", "Type", 65), ("symbol", "Segment/Symbol", 130),
+    ("qty", "Qty", 55), ("price", "Price", 70), ("gross", "Gross", 90),
+    ("brokerage", "Brokerage", 85), ("svc_fee", "Svc Fee", 75), ("net", "Net P&L", 90),
 ]
 
 
@@ -22,7 +23,7 @@ class DataEntryScreen(ctk.CTkFrame):
         super().__init__(parent, fg_color="transparent")
         self.app = app
         self.batch = app.session_state.setdefault("trade_batch", [])
-        self.editing_index = None  # None = adding new row; int = editing batch[index]
+        self.editing_index = None
 
         self.clients = []
         self.agents = []
@@ -39,8 +40,6 @@ class DataEntryScreen(ctk.CTkFrame):
         self._refresh_agents()
         self._on_txn_type_change("BUY")
         self._refresh_batch_table()
-
-    # ---------- LEFT: FORM ----------
 
     def _build_form_panel(self):
         panel = ctk.CTkFrame(self, width=320, corner_radius=14, fg_color=BG_CARD)
@@ -65,7 +64,8 @@ class DataEntryScreen(ctk.CTkFrame):
         row2 = ctk.CTkFrame(panel, fg_color="transparent")
         row2.pack(fill="x", padx=20)
         self.agent_dropdown = ctk.CTkOptionMenu(row2, values=["Loading..."], font=font(13),
-                                                  fg_color=PRIMARY, button_color=PRIMARY_HOVER)
+                                                  fg_color=PRIMARY, button_color=PRIMARY_HOVER,
+                                                  command=lambda _v: self._update_gross_preview())
         self.agent_dropdown.pack(side="left", fill="x", expand=True)
         ctk.CTkButton(row2, text="+ New", width=60, font=font(12), fg_color=PRIMARY,
                       hover_color=PRIMARY_HOVER, command=self._open_new_agent_modal).pack(side="left", padx=(6, 0))
@@ -90,11 +90,11 @@ class DataEntryScreen(ctk.CTkFrame):
         self.dynamic_area = ctk.CTkFrame(panel, fg_color="transparent")
         self.dynamic_area.pack(fill="x", padx=20, pady=(12, 0))
 
-        self.gross_value_label = ctk.CTkLabel(
-            panel, text="Gross value\n₹0", font=font(13), justify="left",
+        self.preview_label = ctk.CTkLabel(
+            panel, text="Gross ₹0  |  Brokerage ₹0  |  Svc fee ₹0", font=font(12), justify="left",
             fg_color=("#EDF1FC", "#242938"), corner_radius=8
         )
-        self.gross_value_label.pack(fill="x", padx=20, pady=(16, 0), ipady=8)
+        self.preview_label.pack(fill="x", padx=20, pady=(16, 0), ipady=8)
 
         btn_row = ctk.CTkFrame(panel, fg_color="transparent")
         btn_row.pack(fill="x", padx=20, pady=(16, 8))
@@ -108,7 +108,6 @@ class DataEntryScreen(ctk.CTkFrame):
             panel, text="Cancel edit", font=font(12), fg_color="transparent",
             border_width=1, text_color=TEXT_MUTED, command=self._cancel_edit
         )
-        # only shown while editing -- packed/unpacked dynamically
 
     def _on_txn_type_change(self, txn_type):
         for w in self.dynamic_area.winfo_children():
@@ -136,8 +135,16 @@ class DataEntryScreen(ctk.CTkFrame):
         ctk.CTkLabel(self.dynamic_area, text="Entry date", font=font(12), text_color=TEXT_MUTED).pack(anchor="w")
         self.date_entry = make_date_picker(self.dynamic_area)
         self.date_entry.pack(fill="x", pady=(0, 8))
-        self.manual_fee_entry = ctk.CTkEntry(self.dynamic_area, placeholder_text="Manual fee (optional)", font=font(13))
-        self.manual_fee_entry.pack(fill="x", pady=(0, 8))
+
+        fee_row = ctk.CTkFrame(self.dynamic_area, fg_color="transparent")
+        fee_row.pack(fill="x", pady=(0, 8))
+        self.manual_fee_entry = ctk.CTkEntry(fee_row, placeholder_text="Manual brokerage (optional)", font=font(13))
+        self.manual_fee_entry.pack(side="left", fill="x", expand=True)
+        self.entry_service_fee_entry = ctk.CTkEntry(fee_row, placeholder_text="Service fee", font=font(13))
+        self.entry_service_fee_entry.pack(side="left", fill="x", expand=True, padx=(6, 0))
+        for e in (self.manual_fee_entry, self.entry_service_fee_entry):
+            e.bind("<KeyRelease>", lambda _e: self._update_gross_preview())
+
         self.remarks_entry = ctk.CTkEntry(self.dynamic_area, placeholder_text="Remarks", font=font(13))
         self.remarks_entry.pack(fill="x")
         self._update_gross_preview()
@@ -145,7 +152,8 @@ class DataEntryScreen(ctk.CTkFrame):
     def _build_sell_fields(self):
         ctk.CTkLabel(self.dynamic_area, text="Open trade to close", font=font(13)).pack(anchor="w")
         self.open_trade_dropdown = ctk.CTkOptionMenu(self.dynamic_area, values=["Select client first"],
-                                                        font=font(13), fg_color=PRIMARY, button_color=PRIMARY_HOVER)
+                                                        font=font(13), fg_color=PRIMARY, button_color=PRIMARY_HOVER,
+                                                        command=lambda _v: self._update_gross_preview())
         self.open_trade_dropdown.pack(fill="x", pady=(0, 8))
         self._refresh_open_trades()
 
@@ -156,41 +164,65 @@ class DataEntryScreen(ctk.CTkFrame):
         ctk.CTkLabel(self.dynamic_area, text="Exit date", font=font(12), text_color=TEXT_MUTED).pack(anchor="w")
         self.exit_date_entry = make_date_picker(self.dynamic_area)
         self.exit_date_entry.pack(fill="x", pady=(0, 8))
-        self.service_fee_entry = ctk.CTkEntry(self.dynamic_area, placeholder_text="Service fee (optional)", font=font(13))
-        self.service_fee_entry.pack(fill="x", pady=(0, 8))
-        self.sell_manual_fee_entry = ctk.CTkEntry(self.dynamic_area, placeholder_text="Manual brokerage (optional)", font=font(13))
-        self.sell_manual_fee_entry.pack(fill="x")
+
+        fee_row = ctk.CTkFrame(self.dynamic_area, fg_color="transparent")
+        fee_row.pack(fill="x", pady=(0, 8))
+        self.sell_manual_fee_entry = ctk.CTkEntry(fee_row, placeholder_text="Manual brokerage (optional)", font=font(13))
+        self.sell_manual_fee_entry.pack(side="left", fill="x", expand=True)
+        self.exit_service_fee_entry = ctk.CTkEntry(fee_row, placeholder_text="Service fee", font=font(13))
+        self.exit_service_fee_entry.pack(side="left", fill="x", expand=True, padx=(6, 0))
+        for e in (self.sell_manual_fee_entry, self.exit_service_fee_entry):
+            e.bind("<KeyRelease>", lambda _e: self._update_gross_preview())
+
         self._update_gross_preview()
 
     def _build_cash_fields(self):
         self.cash_amount_entry = ctk.CTkEntry(self.dynamic_area, placeholder_text="Amount", font=font(13))
         self.cash_amount_entry.pack(fill="x", pady=(0, 8))
         self.cash_amount_entry.bind("<KeyRelease>", lambda _e: self._update_gross_preview())
+
         ctk.CTkLabel(self.dynamic_area, text="Date", font=font(12), text_color=TEXT_MUTED).pack(anchor="w")
         self.cash_date_entry = make_date_picker(self.dynamic_area)
         self.cash_date_entry.pack(fill="x", pady=(0, 8))
+
         self.cash_remarks_entry = ctk.CTkEntry(self.dynamic_area, placeholder_text="Remarks", font=font(13))
         self.cash_remarks_entry.pack(fill="x")
         self._update_gross_preview()
 
+    def _selected_agent(self):
+        name = self.agent_dropdown.get()
+        return next((a for a in self.agents if a.name == name), None)
+
     def _update_gross_preview(self):
         txn_type = self.txn_type_dropdown.get()
+        gv, brk, fee = 0, 0, 0
         try:
             if txn_type == "BUY":
                 qty = float(self.quantity_entry.get() or 0)
                 price = float(self.price_entry.get() or 0)
                 gv = gross_value(price, qty)
+                agent = self._selected_agent()
+                manual = float(self.manual_fee_entry.get()) if self.manual_fee_entry.get() else None
+                if gv > 0 and (agent or manual is not None):
+                    brk = brokerage(buy_value=gv, sell_value=0,
+                                     rate=agent.brokerage_rate if agent else None, manual_override=manual)
+                fee = float(self.entry_service_fee_entry.get() or 0)
             elif txn_type == "SELL":
                 qty = self._selected_open_trade_qty()
                 price = float(self.exit_price_entry.get() or 0)
                 gv = gross_value(price, qty)
+                open_trade = self._selected_open_trade()
+                agent = next((a for a in self.agents if open_trade and a.agent_id == open_trade.agent_id), None)
+                manual = float(self.sell_manual_fee_entry.get()) if self.sell_manual_fee_entry.get() else None
+                if gv > 0 and (agent or manual is not None):
+                    brk = brokerage(buy_value=0, sell_value=gv,
+                                     rate=agent.brokerage_rate if agent else None, manual_override=manual)
+                fee = float(self.exit_service_fee_entry.get() or 0)
             else:
                 gv = float(self.cash_amount_entry.get() or 0)
         except ValueError:
-            gv = 0
-        self.gross_value_label.configure(text=f"Gross value\n₹{gv:,.2f}")
-
-    # ---------- dropdown data ----------
+            pass
+        self.preview_label.configure(text=f"Gross ₹{gv:,.2f}  |  Brokerage ₹{brk:,.2f}  |  Svc fee ₹{fee:,.2f}")
 
     def _refresh_clients(self):
         self.clients = client_service.list_clients()
@@ -215,9 +247,8 @@ class DataEntryScreen(ctk.CTkFrame):
         return match.client_id if match else None
 
     def _selected_agent_id(self):
-        name = self.agent_dropdown.get()
-        match = next((a for a in self.agents if a.name == name), None)
-        return match.agent_id if match else None
+        agent = self._selected_agent()
+        return agent.agent_id if agent else None
 
     def _refresh_open_trades(self):
         client_id = self._selected_client_id()
@@ -240,8 +271,6 @@ class DataEntryScreen(ctk.CTkFrame):
     def _selected_open_trade_qty(self):
         t = self._selected_open_trade()
         return t.quantity if t else 0
-
-    # ---------- + New modals ----------
 
     def _open_new_client_modal(self):
         modal = Modal(self.winfo_toplevel(), "New client", width=320, height=190)
@@ -274,8 +303,6 @@ class DataEntryScreen(ctk.CTkFrame):
 
         modal.add_buttons(save)
         name_entry.focus()
-
-    # ---------- RIGHT: BATCH TABLE ----------
 
     def _build_batch_panel(self):
         panel = ctk.CTkFrame(self, corner_radius=14, fg_color=BG_CARD)
@@ -316,10 +343,14 @@ class DataEntryScreen(ctk.CTkFrame):
         total = sum(r["gross_value"] for r in self.batch)
         rows = []
         for row in self.batch:
+            net_text = f"₹{row['net_preview']:,.2f}" if row.get("net_preview") is not None else "-"
             rows.append((
                 row["client_name"], row["txn_type"], row["display_symbol"],
                 str(row.get("quantity", "")), str(row.get("price", "")),
                 f"₹{row['gross_value']:,.2f}",
+                f"₹{row.get('brokerage_preview', 0):,.2f}",
+                f"₹{row.get('service_fee_preview', 0):,.2f}",
+                net_text,
             ))
         self.table.set_rows(rows, row_data=list(range(len(self.batch))))
         self.batch_total_label.configure(text=f"Batch total: ₹{total:,.2f} · {len(self.batch)} row(s)")
@@ -336,8 +367,6 @@ class DataEntryScreen(ctk.CTkFrame):
         if self.editing_index == idx:
             self._cancel_edit()
         self._refresh_batch_table()
-
-    # ---------- click row -> edit ----------
 
     def _load_row_for_edit(self, _item_id, index):
         if index is None or index >= len(self.batch):
@@ -363,6 +392,7 @@ class DataEntryScreen(ctk.CTkFrame):
             set_date_value(self.date_entry, row["entry_date"])
             if row["manual_fee"] is not None:
                 self.manual_fee_entry.insert(0, str(row["manual_fee"]))
+            self.entry_service_fee_entry.insert(0, str(row["entry_service_fee"]))
             if row["remarks"]:
                 self.remarks_entry.insert(0, row["remarks"])
 
@@ -370,7 +400,7 @@ class DataEntryScreen(ctk.CTkFrame):
             self._refresh_open_trades()
             self.exit_price_entry.insert(0, str(row["price"]))
             set_date_value(self.exit_date_entry, row["exit_date"])
-            self.service_fee_entry.insert(0, str(row["service_fee"]))
+            self.exit_service_fee_entry.insert(0, str(row["exit_service_fee"]))
             if row["manual_fee"] is not None:
                 self.sell_manual_fee_entry.insert(0, str(row["manual_fee"]))
 
@@ -393,8 +423,6 @@ class DataEntryScreen(ctk.CTkFrame):
         self.table.clear_selection()
         self._on_txn_type_change(self.txn_type_dropdown.get())
 
-    # ---------- build row from form ----------
-
     def _build_row_from_form(self):
         client_id = self._selected_client_id()
         agent_id = self._selected_agent_id()
@@ -405,6 +433,10 @@ class DataEntryScreen(ctk.CTkFrame):
             raise ValueError("Select a client first")
 
         if txn_type == "BUY":
+            agent = self._selected_agent()
+            manual_fee = float(self.manual_fee_entry.get()) if self.manual_fee_entry.get() else None
+            entry_service_fee = float(self.entry_service_fee_entry.get() or 0)
+
             row = {
                 "txn_type": "BUY", "client_id": client_id, "client_name": client_name,
                 "agent_id": agent_id, "segment": self.segment_dropdown.get(),
@@ -412,26 +444,47 @@ class DataEntryScreen(ctk.CTkFrame):
                 "quantity": int(self.quantity_entry.get()),
                 "price": float(self.price_entry.get()),
                 "entry_date": self.date_entry.get().strip(),
-                "manual_fee": float(self.manual_fee_entry.get()) if self.manual_fee_entry.get() else None,
+                "manual_fee": manual_fee,
+                "entry_service_fee": entry_service_fee,
                 "remarks": self.remarks_entry.get().strip() or None,
             }
             row["gross_value"] = gross_value(row["price"], row["quantity"])
             row["display_symbol"] = row["symbol"]
+            row["brokerage_preview"] = brokerage(
+                buy_value=row["gross_value"], sell_value=0,
+                rate=agent.brokerage_rate if agent else None, manual_override=manual_fee
+            ) if agent or manual_fee is not None else 0
+            row["service_fee_preview"] = entry_service_fee
+            row["net_preview"] = None
 
         elif txn_type == "SELL":
             open_trade = self._selected_open_trade()
             if open_trade is None:
                 raise ValueError("No open trade selected")
             exit_price = float(self.exit_price_entry.get())
+            manual_fee = float(self.sell_manual_fee_entry.get()) if self.sell_manual_fee_entry.get() else None
+            exit_service_fee = float(self.exit_service_fee_entry.get() or 0)
+            agent = next((a for a in self.agents if a.agent_id == open_trade.agent_id), None)
+
             row = {
                 "txn_type": "SELL", "client_id": client_id, "client_name": client_name,
                 "trade_id": open_trade.trade_id, "quantity": open_trade.quantity,
                 "price": exit_price, "exit_date": self.exit_date_entry.get().strip(),
-                "service_fee": float(self.service_fee_entry.get()) if self.service_fee_entry.get() else 0,
-                "manual_fee": float(self.sell_manual_fee_entry.get()) if self.sell_manual_fee_entry.get() else None,
+                "exit_service_fee": exit_service_fee,
+                "manual_fee": manual_fee,
             }
             row["gross_value"] = gross_value(exit_price, open_trade.quantity)
             row["display_symbol"] = f"Close {open_trade.symbol}"
+            row["brokerage_preview"] = brokerage(
+                buy_value=0, sell_value=row["gross_value"],
+                rate=agent.brokerage_rate if agent else None, manual_override=manual_fee
+            ) if agent or manual_fee is not None else 0
+            row["service_fee_preview"] = exit_service_fee
+            gpl = gross_pl(open_trade.entry_price, exit_price, open_trade.quantity)
+            row["net_preview"] = net_pl(
+                gpl, open_trade.entry_brokerage, row["brokerage_preview"],
+                open_trade.entry_service_fee, exit_service_fee
+            )
 
         else:
             amount = float(self.cash_amount_entry.get())
@@ -440,6 +493,7 @@ class DataEntryScreen(ctk.CTkFrame):
                 "amount": amount, "txn_date": self.cash_date_entry.get().strip(),
                 "remarks": self.cash_remarks_entry.get().strip() or None,
                 "gross_value": amount, "display_symbol": "-",
+                "brokerage_preview": 0, "service_fee_preview": 0, "net_preview": None,
             }
         return row
 
@@ -462,8 +516,6 @@ class DataEntryScreen(ctk.CTkFrame):
     def _clear_dynamic_fields(self):
         self._on_txn_type_change(self.txn_type_dropdown.get())
 
-    # ---------- commit ----------
-
     def _commit_batch(self):
         if not self.batch:
             return
@@ -477,12 +529,12 @@ class DataEntryScreen(ctk.CTkFrame):
                         segment=row["segment"], symbol=row["symbol"],
                         quantity=row["quantity"], entry_date=row["entry_date"],
                         entry_price=row["price"], manual_brokerage=row["manual_fee"],
-                        remarks=row["remarks"]
+                        entry_service_fee=row["entry_service_fee"], remarks=row["remarks"]
                     )
                 elif row["txn_type"] == "SELL":
                     trade_service.close_trade(
                         trade_id=row["trade_id"], exit_date=row["exit_date"],
-                        exit_price=row["price"], service_fee=row["service_fee"],
+                        exit_price=row["price"], exit_service_fee=row["exit_service_fee"],
                         manual_brokerage=row["manual_fee"]
                     )
                 elif row["txn_type"] == "DEPOSIT":
