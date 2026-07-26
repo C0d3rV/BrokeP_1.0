@@ -1,7 +1,8 @@
 import customtkinter as ctk
 from tkinter import ttk
+import os
 
-FONT_FAMILY = "Roboto"
+FONT_FAMILY = "Inter"
 
 # --- Palette ---
 PRIMARY = "#3B5BDB"
@@ -26,9 +27,30 @@ TREE_SELECT_BG = "#D6E0FB"
 TREE_SELECT_FG = "#1B1F2A"
 
 
-def font(size=14, weight="normal"):
-    return ctk.CTkFont(family=FONT_FAMILY, size=size, weight=weight)
+def configure_typography():
+    font_dir = os.path.join("assets", "fonts")
+    
+    # Load the specific static weight files so Tkinter recognizes them
+    weights = {
+        "normal": "Inter_18pt-Regular.ttf",
+        "medium": "Inter_18pt-Medium.ttf",
+        "bold": "Inter_18pt-Bold.ttf"
+    }
+    
+    for weight_name, filename in weights.items():
+        path = os.path.join(font_dir, filename)
+        if os.path.exists(path):
+            ctk.FontManager.load_font(path)
 
+def font(size: int, weight: str = "normal"):
+    """Helper to return the Inter font with correct weight mapping."""
+    tk_weight = "normal"
+    if weight == "bold":
+        tk_weight = "bold"
+    elif weight == "medium":
+        tk_weight = "normal" # CustomTkinter handles static registered font styles automatically
+        
+    return (FONT_FAMILY, size, tk_weight)
 
 def configure_ttk_style():
     """Call once, after the root Tk window exists (ttk.Style needs a live

@@ -3,18 +3,21 @@
 Two copy types, since a client bill and a broker bill legitimately differ:
   - "client": full detail, includes service fee, Net P&L = gross - brokerage - service fee
   - "broker": no service fee column at all, Net P&L = gross - brokerage only
-    (service fee is the house's own margin -- the broker has no business
-    seeing it, and it's never subtracted from the broker-facing net figure)
 """
 from openpyxl import Workbook
-from openpyxl.styles import Font, PatternFill, Alignment
+from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from reportlab.lib import colors
-from reportlab.lib.pagesizes import landscape, A4
+from reportlab.lib.pagesizes import portrait, landscape, A4
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
 from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.lib.units import cm
+from datetime import date
 
 from app.domain.calculations.pnl import net_pl
+
+# ==============================================================================
+# REPORTS SCREEN EXPORTS (HISTORICAL DATA)
+# ==============================================================================
 
 CLIENT_HEADERS = ["Client", "Agent", "Segment", "Symbol", "Qty",
                    "Entry Date", "Entry Price", "Exit Date", "Exit Price",
@@ -30,15 +33,14 @@ def _trade_row(trade, client_name: str, agent_name: str, copy_type: str):
     fee_total = round((trade.entry_service_fee or 0) + (trade.exit_service_fee or 0), 2)
     gross = round(trade.gross_pl, 2) if trade.gross_pl is not None else "-"
 
-    
-
     if copy_type == "client":
-        base = [client_name, trade.segment, trade.symbol, trade.quantity,
+        base = [client_name, agent_name, trade.segment, trade.symbol, trade.quantity,
                     trade.entry_date, trade.entry_price, trade.exit_date or "-", trade.exit_price or "-",
                     brokerage_total]
         net = round(trade.net_pl, 2) if trade.net_pl is not None else "-"
+        # FIXED: Status was shifting because net and status weren't mapped cleanly in a list
         return base + [fee_total, gross, net, trade.status]
-    else:  # broker -- service fee excluded entirely, net recomputed without it
+    else:  
         base = [client_name, agent_name, trade.segment, trade.symbol, trade.quantity,
                 trade.entry_date, trade.entry_price, trade.exit_date or "-", trade.exit_price or "-",
                 brokerage_total]
@@ -104,4 +106,187 @@ def export_trades_to_pdf(trades, client_name_lookup, agent_name_lookup,
         ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
     ]))
     elements.append(table)
+    doc.build(elements)
+
+
+def generate_filename(client_name: str, report_type: str, ext: str) -> str:
+    from datetime import datetime
+    safe_client = client_name.replace(" ", "_")
+    safe_type = report_type.replace(" ", "_")
+    timestamp = datetime.now().strftime("%Y-%m-%d_%H%M%S")
+    return f"{safe_client}_{safe_type}_{timestamp}.{ext}"
+
+
+# ==============================================================================
+# CLEAN DAILY STATEMENT (HOME SCREEN EXPORTS)
+# ==============================================================================
+
+DAILY_HEADERS = ["Symbol", "Entry Date", "Expiry", "Qty", "Avg Entry", "Closing Price", "Unrealized P&L"]
+
+def _get_client_financials(client_id: int):
+    from app.database.repositories import cash_repository, trade_repository, mark_repository
+    today = date.today().isoformat()
+    
+    cash_txns = cash_repository.get_cash_ledger_for_client(client_id)
+    net_cash = sum(txn.amount for txn in cash_txns if txn.txn_type in ("DEPOSIT", "ADJUSTMENT"))
+    net_cash -= sum(txn.amount for txn in cash_txns if txn.txn_type == "WITHDRAWAL")
+        
+    closed_trades = trade_repository.get_closed_trades_for_client(client_id)
+    realized_pnl = sum(t.net_pl for t in closed_trades if t.net_pl)
+    
+    open_trades = trade_repository.get_open_trades_for_client(client_id)
+    unrealized_pnl = 0.0
+    total_invested = 0.0
+    for t in open_trades:
+        total_invested += (t.entry_price * t.quantity)
+        mark = mark_repository.get_mark_for_trade_and_date(t.trade_id, today)
+        if mark and mark.unrealized_net_pl:
+            unrealized_pnl += mark.unrealized_net_pl
+            
+    account_balance = net_cash + realized_pnl + unrealized_pnl
+    return net_cash, realized_pnl, unrealized_pnl, total_invested, account_balance
+
+
+def _daily_row(trade, mark):
+    closing = mark.closing_price if mark else 0.0
+    unrealized = mark.unrealized_net_pl if mark else 0.0
+    expiry = getattr(trade, 'expiry_date', None) or "-"
+    return [
+        trade.symbol,
+        trade.entry_date,
+        expiry,
+        trade.quantity,
+        f"{trade.entry_price:,.2f}",
+        f"{closing:,.2f}" if mark else "-",
+        f"{unrealized:,.2f}" if mark else "-"
+    ]
+
+
+def export_daily_snapshot_to_excel(trades_with_marks, client, filepath: str) -> None:
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Daily Statement"
+    
+    ws.append([f"Daily P&L Statement: {client.name}"])
+    ws.append([f"Generated: {date.today().strftime('%B %d, %Y')}"])
+    ws.append([])
+    ws.append(DAILY_HEADERS)
+    
+    header_fill = PatternFill(start_color="3B5BDB", end_color="3B5BDB", fill_type="solid")
+    for cell in ws[4]:
+        cell.font = Font(bold=True, color="FFFFFF")
+        cell.fill = header_fill
+        cell.alignment = Alignment(horizontal="center")
+        
+    for trade, mark in trades_with_marks:
+        ws.append(_daily_row(trade, mark))
+        
+    ws.append([])
+    ws.append([])
+    
+    net_cash, realized_pnl, unrealized_pnl, total_invested, account_balance = _get_client_financials(client.client_id)
+    
+    summary_start_row = ws.max_row + 1
+    ws.append(["", "", "", "FINANCIAL SUMMARY", ""])
+    ws.append(["", "", "", "Total Invested:", f"Rs. {total_invested:,.2f}"])
+    ws.append(["", "", "", "Net Cash Transferred:", f"Rs. {net_cash:,.2f}"])
+    ws.append(["", "", "", "Realized P&L (Historical):", f"Rs. {realized_pnl:,.2f}"])
+    ws.append(["", "", "", "Unrealized P&L (Open):", f"Rs. {unrealized_pnl:,.2f}"])
+    ws.append(["", "", "", "CURRENT ACCOUNT BALANCE:", f"Rs. {account_balance:,.2f}"])
+
+    summary_fill = PatternFill(start_color="F5F7FC", end_color="F5F7FC", fill_type="solid")
+    for row_idx in range(summary_start_row, ws.max_row + 1):
+        ws.cell(row=row_idx, column=4).font = Font(bold=True)
+        ws.cell(row=row_idx, column=4).fill = summary_fill
+        ws.cell(row=row_idx, column=5).fill = summary_fill
+        ws.cell(row=row_idx, column=5).alignment = Alignment(horizontal="right")
+        
+    ws.cell(row=ws.max_row, column=4).font = Font(bold=True, color="FFFFFF")
+    ws.cell(row=ws.max_row, column=4).fill = PatternFill(start_color="4A90E2", end_color="4A90E2", fill_type="solid")
+    ws.cell(row=ws.max_row, column=5).font = Font(bold=True, color="FFFFFF")
+    ws.cell(row=ws.max_row, column=5).fill = PatternFill(start_color="4A90E2", end_color="4A90E2", fill_type="solid")
+
+    for col in ws.columns:
+        max_len = max((len(str(c.value)) for c in col if c.value is not None), default=12)
+        ws.column_dimensions[col[0].column_letter].width = max_len + 3
+
+    wb.save(filepath)
+
+
+def export_daily_snapshot_to_pdf(trades_with_marks, client, filepath: str) -> None:
+    doc = SimpleDocTemplate(filepath, pagesize=portrait(A4), leftMargin=1.5*cm, rightMargin=1.5*cm, topMargin=2*cm, bottomMargin=2*cm)
+    styles = getSampleStyleSheet()
+    
+    title_style = styles["Heading1"]
+    title_style.alignment = 1 
+    normal_style = styles["Normal"]
+    
+    elements = []
+    
+    elements.append(Paragraph("<b>BROKEP</b>", title_style))
+    elements.append(Paragraph("Daily P&amp;L Statement", title_style))
+    elements.append(Spacer(1, 0.5*cm))
+    
+    info_table = Table([
+        [Paragraph(f"<b>Client:</b> {client.name}", normal_style), 
+         Paragraph(f"<b>Date:</b> {date.today().strftime('%B %d, %Y')}", normal_style)]
+    ], colWidths=[11*cm, 7*cm])
+    elements.append(info_table)
+    elements.append(Spacer(1, 1*cm))
+    
+    net_cash, realized_pnl, unrealized_pnl, total_invested, account_balance = _get_client_financials(client.client_id)
+    
+    summary_data = [
+        ["Financial Summary", ""],
+        ["Total Invested:", f"Rs. {total_invested:,.2f}"],
+        ["Net Cash Transferred:", f"Rs. {net_cash:,.2f}"],
+        ["Realized P&L (Historical):", f"Rs. {realized_pnl:,.2f}"],
+        ["Unrealized P&L (Open Positions):", f"Rs. {unrealized_pnl:,.2f}"],
+        ["CURRENT ACCOUNT BALANCE:", f"Rs. {account_balance:,.2f}"]
+    ]
+    
+    summary_table = Table(summary_data, colWidths=[12*cm, 6*cm])
+    summary_table.setStyle(TableStyle([
+        ("BACKGROUND", (0,0), (-1,0), colors.HexColor("#3B5BDB")),
+        ("TEXTCOLOR", (0,0), (-1,0), colors.white),
+        ("FONTNAME", (0,0), (-1,-1), "Helvetica-Bold"),
+        ("BACKGROUND", (0,1), (-1,-2), colors.HexColor("#F5F7FC")),
+        ("ALIGN", (1,1), (1,-1), "RIGHT"),
+        ("GRID", (0,0), (-1,-1), 0.5, colors.HexColor("#D8DEE9")),
+        ("TOPPADDING", (0,0), (-1,-1), 8),
+        ("BOTTOMPADDING", (0,0), (-1,-1), 8),
+        ("BACKGROUND", (0,-1), (-1,-1), colors.HexColor("#4A90E2")),
+        ("TEXTCOLOR", (0,-1), (-1,-1), colors.white),
+    ]))
+    elements.append(summary_table)
+    elements.append(Spacer(1, 1*cm))
+    
+    elements.append(Paragraph("<b>Open Positions Breakdown</b>", styles["Heading3"]))
+    elements.append(Spacer(1, 0.2*cm))
+    
+    data = [DAILY_HEADERS]
+    for t, m in trades_with_marks:
+        data.append(_daily_row(t, m))
+        
+    data_table = Table(data, repeatRows=1, colWidths=[3*cm, 2.5*cm, 2*cm, 1.5*cm, 2.5*cm, 2.5*cm, 3.5*cm])
+    data_table.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#3B5BDB")),
+        ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+        ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+        ("FONTSIZE", (0, 0), (-1, -1), 8),
+        ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#D8DEE9")),
+        ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#F5F7FC")]),
+        ("ALIGN", (3, 0), (-1, -1), "RIGHT"),
+        ("ALIGN", (0, 0), (2, -1), "LEFT"),
+        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+        ("TOPPADDING", (0,0), (-1,-1), 6),
+        ("BOTTOMPADDING", (0,0), (-1,-1), 6),
+    ]))
+    elements.append(data_table)
+    
+    elements.append(Spacer(1, 1.5*cm))
+    footer = Paragraph("<font color='gray'>Generated by BrokeP Trading System.</font>", styles["Normal"])
+    footer.alignment = 1
+    elements.append(footer)
+    
     doc.build(elements)
