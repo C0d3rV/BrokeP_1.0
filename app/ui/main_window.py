@@ -1,6 +1,7 @@
 import customtkinter as ctk
 import traceback
 import os
+import sys
 from app.ui.theme import font, configure_ttk_style, BG_APP, BG_CARD, PRIMARY, PRIMARY_HOVER, TEXT_MUTED
 
 NAV_ITEMS = [
@@ -8,6 +9,16 @@ NAV_ITEMS = [
     ("+ Data", "data_entry"),
     ("Reports", "reports"),
 ]
+
+
+def resource_path(relative_path):
+    """ Get absolute path to resource, works for dev and for PyInstaller """
+    try:
+        base_path = sys._MEIPASS
+    except Exception:
+        base_path = os.path.abspath(".")
+    return os.path.join(base_path, relative_path)
+
 
 class MainWindow(ctk.CTk):
     def __init__(self):
@@ -17,7 +28,7 @@ class MainWindow(ctk.CTk):
         self.minsize(1000, 640)
         self.configure(fg_color=BG_APP)
 
-        icon_path = os.path.join("assets", "icons", "logo.ico")
+        icon_path = resource_path(os.path.join("assets", "icons", "logo.ico"))
         if os.path.exists(icon_path):
             self.iconbitmap(icon_path)
 
