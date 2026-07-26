@@ -1,3 +1,5 @@
+from os import path
+
 import customtkinter as ctk
 from tkinter import filedialog, messagebox
 
@@ -199,19 +201,24 @@ class ReportScreen(ctk.CTkFrame):
     def _copy_type(self) -> str:
         return "client" if self.copy_type_selector.get() == "Client copy" else "broker"
 
+    def _default_export_name(self, ext: str) -> str:
+        client_name = self.client_dropdown.get()  # "All clients" or a specific name
+        report_type = "ClientCopy" if self._copy_type() == "client" else "BrokerCopy"
+        return export_service.generate_filename(client_name, report_type, ext)
+
     def _export_excel(self):
         if not self.current_trades:
             messagebox.showinfo("Nothing to export", "No trades match the current filters.")
-            return
+            return 
         path = filedialog.asksaveasfilename(defaultextension=".xlsx",
-                                             filetypes=[("Excel file", "*.xlsx")],
-                                             initialfile="brokep_report.xlsx")
+                                         filetypes=[("Excel file", "*.xlsx")],
+                                         initialfile=self._default_export_name("xlsx"))
         if not path:
             return
         try:
             export_service.export_trades_to_excel(
                 self.current_trades, self._client_name, self._agent_name, path, self._copy_type()
-            )
+            ) 
             messagebox.showinfo("Exported", f"Saved to {path}")
         except Exception as e:
             messagebox.showerror("Export failed", str(e))
@@ -221,8 +228,8 @@ class ReportScreen(ctk.CTkFrame):
             messagebox.showinfo("Nothing to export", "No trades match the current filters.")
             return
         path = filedialog.asksaveasfilename(defaultextension=".pdf",
-                                             filetypes=[("PDF file", "*.pdf")],
-                                             initialfile="brokep_report.pdf")
+                                         filetypes=[("PDF file", "*.pdf")],
+                                         initialfile=self._default_export_name("pdf"))
         if not path:
             return
         try:

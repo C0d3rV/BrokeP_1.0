@@ -29,3 +29,13 @@ def get_marks_for_date(mark_date: str):
 
 def get_mark_history_for_trade(trade_id: int):
     return mark_repository.get_mark_history_for_trade(trade_id)
+
+def group_open_trades_by_instrument(open_trades):
+    """Groups OPEN trades by (symbol, expiry_date) so one closing-price entry
+    can be applied to every trade sharing that exact instrument, without
+    conflating two different expiries of the same underlying symbol."""
+    groups = {}
+    for t in open_trades:
+        key = (t.symbol, t.expiry_date)
+        groups.setdefault(key, []).append(t)
+    return groups
