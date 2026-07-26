@@ -12,9 +12,9 @@ SEGMENTS = ["EQUITY", "FNO", "COMMODITY"]
 TXN_TYPES = ["BUY", "SELL", "DEPOSIT", "WITHDRAWAL"]
 
 BATCH_COLUMNS = [
-    ("client", "Client", 100), ("type", "Type", 65), ("symbol", "Segment/Symbol", 130),
-    ("qty", "Qty", 55), ("price", "Price", 70), ("gross", "Gross", 90),
-    ("brokerage", "Brokerage", 85), ("svc_fee", "Svc Fee", 75), ("net", "Net P&L", 90),
+    ("client", "Client", 90), ("type", "Type", 60), ("symbol", "Segment/Symbol", 120),
+    ("expiry", "Expiry", 80), ("qty", "Qty", 50), ("price", "Price", 65), ("gross", "Gross", 85),
+    ("brokerage", "Brokerage", 75), ("svc_fee", "Svc Fee", 65), ("net", "Net P&L", 85),
 ]
 
 
@@ -72,11 +72,13 @@ class DataEntryScreen(ctk.CTkFrame):
 
         seg_row = ctk.CTkFrame(panel, fg_color="transparent")
         seg_row.pack(fill="x", padx=20, pady=(12, 0))
+        
         seg_col = ctk.CTkFrame(seg_row, fg_color="transparent")
         seg_col.pack(side="left", fill="x", expand=True)
         ctk.CTkLabel(seg_col, text="Segment", font=font(13)).pack(anchor="w")
         self.segment_dropdown = ctk.CTkOptionMenu(seg_col, values=SEGMENTS, font=font(13),
-                                                     fg_color=PRIMARY, button_color=PRIMARY_HOVER)
+                                                     fg_color=PRIMARY, button_color=PRIMARY_HOVER,
+                                                     command=lambda _v: self._on_segment_change())
         self.segment_dropdown.pack(fill="x")
 
         type_col = ctk.CTkFrame(seg_row, fg_color="transparent")
@@ -109,6 +111,14 @@ class DataEntryScreen(ctk.CTkFrame):
             border_width=1, text_color=TEXT_MUTED, command=self._cancel_edit
         )
 
+    def _on_segment_change(self):
+        """Toggles visibility of the expiry date picker if FNO is selected."""
+        if hasattr(self, "expiry_container"):
+            if self.segment_dropdown.get() == "FNO":
+                self.expiry_container.pack(fill="x", pady=(0, 8), before=self.quantity_entry.master)
+            else:
+                self.expiry_container.pack_forget()
+
     def _on_txn_type_change(self, txn_type):
         for w in self.dynamic_area.winfo_children():
             w.destroy()
@@ -120,8 +130,17 @@ class DataEntryScreen(ctk.CTkFrame):
             self._build_cash_fields()
 
     def _build_buy_fields(self):
-        self.symbol_entry = ctk.CTkEntry(self.dynamic_area, placeholder_text="Symbol", font=font(13))
+        self.symbol_entry = ctk.CTkEntry(self.dynamic_area, placeholder_text="Symbol (e.g. NIFTY)", font=font(13))
         self.symbol_entry.pack(fill="x", pady=(0, 8))
+
+        # Expiry Date Container (Specifically for FNO)
+        self.expiry_container = ctk.CTkFrame(self.dynamic_area, fg_color="transparent")
+        ctk.CTkLabel(self.expiry_container, text="F&O Expiry Date", font=font(12), text_color=TEXT_MUTED).pack(anchor="w")
+        self.expiry_date_entry = make_date_picker(self.expiry_container)
+        self.expiry_date_entry.pack(fill="x")
+        
+        if self.segment_dropdown.get() == "FNO":
+            self.expiry_container.pack(fill="x", pady=(0, 8))
 
         qp_row = ctk.CTkFrame(self.dynamic_area, fg_color="transparent")
         qp_row.pack(fill="x", pady=(0, 8))
@@ -138,7 +157,7 @@ class DataEntryScreen(ctk.CTkFrame):
 
         fee_row = ctk.CTkFrame(self.dynamic_area, fg_color="transparent")
         fee_row.pack(fill="x", pady=(0, 8))
-        self.manual_fee_entry = ctk.CTkEntry(fee_row, placeholder_text="Manual brokerage (optional)", font=font(13))
+        self.manual_fee_entry = ctk.CTkEntry(fee_row, placeholder_text="Manual brokerage", font=font(13))
         self.manual_fee_entry.pack(side="left", fill="x", expand=True)
         self.entry_service_fee_entry = ctk.CTkEntry(fee_row, placeholder_text="Service fee", font=font(13))
         self.entry_service_fee_entry.pack(side="left", fill="x", expand=True, padx=(6, 0))
@@ -167,7 +186,7 @@ class DataEntryScreen(ctk.CTkFrame):
 
         fee_row = ctk.CTkFrame(self.dynamic_area, fg_color="transparent")
         fee_row.pack(fill="x", pady=(0, 8))
-        self.sell_manual_fee_entry = ctk.CTkEntry(fee_row, placeholder_text="Manual brokerage (optional)", font=font(13))
+        self.sell_manual_fee_entry = ctk.CTkEntry(fee_row, placeholder_text="Manual brokerage", font=font(13))
         self.sell_manual_fee_entry.pack(side="left", fill="x", expand=True)
         self.exit_service_fee_entry = ctk.CTkEntry(fee_row, placeholder_text="Service fee", font=font(13))
         self.exit_service_fee_entry.pack(side="left", fill="x", expand=True, padx=(6, 0))
@@ -334,7 +353,7 @@ class DataEntryScreen(ctk.CTkFrame):
             command=self._remove_selected
         ).pack(side="right", padx=(8, 0))
         self.commit_btn = ctk.CTkButton(
-            footer, text="Finalize & commit", font=font(13, "bold"),
+            footer, text="Save", font=font(13, "bold"),
             fg_color=SUCCESS, hover_color=SUCCESS_HOVER, command=self._commit_batch
         )
         self.commit_btn.pack(side="right")
@@ -345,7 +364,8 @@ class DataEntryScreen(ctk.CTkFrame):
         for row in self.batch:
             net_text = f"₹{row['net_preview']:,.2f}" if row.get("net_preview") is not None else "-"
             rows.append((
-                row["client_name"], row["txn_type"], row["display_symbol"],
+                row["client_name"], row["txn_type"], row["symbol"],
+                row.get("expiry_date", "-"),
                 str(row.get("quantity", "")), str(row.get("price", "")),
                 f"₹{row['gross_value']:,.2f}",
                 f"₹{row.get('brokerage_preview', 0):,.2f}",
@@ -374,6 +394,9 @@ class DataEntryScreen(ctk.CTkFrame):
         row = self.batch[index]
         self.editing_index = index
 
+        self.segment_dropdown.set(row.get("segment", "EQUITY"))
+        self._on_segment_change()
+
         self.txn_type_dropdown.set(row["txn_type"])
         self._on_txn_type_change(row["txn_type"])
 
@@ -385,8 +408,9 @@ class DataEntryScreen(ctk.CTkFrame):
             agent_match = next((a for a in self.agents if a.agent_id == row["agent_id"]), None)
             if agent_match:
                 self.agent_dropdown.set(agent_match.name)
-            self.segment_dropdown.set(row["segment"])
             self.symbol_entry.insert(0, row["symbol"])
+            if row.get("expiry_date"):
+                set_date_value(self.expiry_date_entry, row["expiry_date"])
             self.quantity_entry.insert(0, str(row["quantity"]))
             self.price_entry.insert(0, str(row["price"]))
             set_date_value(self.date_entry, row["entry_date"])
@@ -428,6 +452,7 @@ class DataEntryScreen(ctk.CTkFrame):
         agent_id = self._selected_agent_id()
         client_name = self.client_dropdown.get()
         txn_type = self.txn_type_dropdown.get()
+        segment = self.segment_dropdown.get()
 
         if client_id is None:
             raise ValueError("Select a client first")
@@ -436,11 +461,13 @@ class DataEntryScreen(ctk.CTkFrame):
             agent = self._selected_agent()
             manual_fee = float(self.manual_fee_entry.get()) if self.manual_fee_entry.get() else None
             entry_service_fee = float(self.entry_service_fee_entry.get() or 0)
+            expiry_val = self.expiry_date_entry.get().strip() if segment == "FNO" else None
 
             row = {
                 "txn_type": "BUY", "client_id": client_id, "client_name": client_name,
-                "agent_id": agent_id, "segment": self.segment_dropdown.get(),
+                "agent_id": agent_id, "segment": segment,
                 "symbol": self.symbol_entry.get().strip().upper(),
+                "expiry_date": expiry_val,
                 "quantity": int(self.quantity_entry.get()),
                 "price": float(self.price_entry.get()),
                 "entry_date": self.date_entry.get().strip(),
@@ -449,7 +476,6 @@ class DataEntryScreen(ctk.CTkFrame):
                 "remarks": self.remarks_entry.get().strip() or None,
             }
             row["gross_value"] = gross_value(row["price"], row["quantity"])
-            row["display_symbol"] = row["symbol"]
             row["brokerage_preview"] = brokerage(
                 buy_value=row["gross_value"], sell_value=0,
                 rate=agent.brokerage_rate if agent else None, manual_override=manual_fee
@@ -474,7 +500,8 @@ class DataEntryScreen(ctk.CTkFrame):
                 "manual_fee": manual_fee,
             }
             row["gross_value"] = gross_value(exit_price, open_trade.quantity)
-            row["display_symbol"] = f"Close {open_trade.symbol}"
+            row["symbol"] = open_trade.symbol
+            row["expiry_date"] = getattr(open_trade, 'expiry_date', None)
             row["brokerage_preview"] = brokerage(
                 buy_value=0, sell_value=row["gross_value"],
                 rate=agent.brokerage_rate if agent else None, manual_override=manual_fee
@@ -492,7 +519,7 @@ class DataEntryScreen(ctk.CTkFrame):
                 "txn_type": txn_type, "client_id": client_id, "client_name": client_name,
                 "amount": amount, "txn_date": self.cash_date_entry.get().strip(),
                 "remarks": self.cash_remarks_entry.get().strip() or None,
-                "gross_value": amount, "display_symbol": "-",
+                "gross_value": amount, "symbol": "-", "expiry_date": None,
                 "brokerage_preview": 0, "service_fee_preview": 0, "net_preview": None,
             }
         return row
@@ -524,6 +551,7 @@ class DataEntryScreen(ctk.CTkFrame):
         for row in self.batch:
             try:
                 if row["txn_type"] == "BUY":
+                    # Check if open_trade repository accepts expiry_date or if it needs to be passed
                     trade_service.open_trade(
                         client_id=row["client_id"], agent_id=row["agent_id"],
                         segment=row["segment"], symbol=row["symbol"],
@@ -543,7 +571,7 @@ class DataEntryScreen(ctk.CTkFrame):
                     cash_service.withdraw(row["client_id"], row["txn_date"], row["amount"], row["remarks"])
                 succeeded.append(row)
             except ValueError as e:
-                errors.append(f"{row['display_symbol']}: {e}")
+                errors.append(f"{row['symbol']}: {e}")
 
         for row in succeeded:
             self.batch.remove(row)

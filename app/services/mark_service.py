@@ -36,6 +36,6 @@ def group_open_trades_by_instrument(open_trades):
     conflating two different expiries of the same underlying symbol."""
     groups = {}
     for t in open_trades:
-        key = (t.symbol, t.expiry_date)
+        key = (t.symbol, getattr(t, 'expiry_date', None))
         groups.setdefault(key, []).append(t)
     return groups
