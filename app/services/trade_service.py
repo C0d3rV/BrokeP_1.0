@@ -6,7 +6,7 @@ from app.domain.calculations.pnl import gross_value, brokerage, gross_pl, net_pl
 def open_trade(client_id: int, agent_id: int, segment: str, symbol: str,
                quantity: int, entry_date: str, entry_price: float,
                manual_brokerage: float = None, entry_service_fee: float = 0,
-               remarks: str = None) -> int:
+               expiry_date: str = None, remarks: str = None) -> int:
     validate_trade_entry(client_id, agent_id, segment, symbol,
                           quantity, entry_price, entry_date)
 
@@ -27,7 +27,7 @@ def open_trade(client_id: int, agent_id: int, segment: str, symbol: str,
         client_id=client_id, agent_id=agent_id, segment=segment, symbol=symbol,
         quantity=quantity, entry_date=entry_date, entry_price=entry_price,
         entry_brokerage=entry_brokerage, entry_service_fee=entry_service_fee,
-        remarks=remarks
+        expiry_date=expiry_date, remarks=remarks
     )
 
 

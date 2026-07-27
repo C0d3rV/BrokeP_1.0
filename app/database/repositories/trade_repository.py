@@ -9,16 +9,16 @@ def _row_to_trade(row) -> Trade:
 def open_trade(client_id: int, agent_id: int, segment: str, symbol: str,
                quantity: int, entry_date: str, entry_price: float,
                entry_brokerage: float, entry_service_fee: float = 0,
-               remarks: str = None) -> int:
+               expiry_date: str = None, remarks: str = None) -> int:
     con, cursor = create_connection()
     try:
         cursor.execute(
             """INSERT INTO trades (
-                   client_id, agent_id, segment, symbol, quantity,
+                   client_id, agent_id, segment, symbol, quantity, expiry_date,
                    entry_date, entry_price, entry_brokerage, entry_service_fee,
                    status, remarks
-               ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'OPEN', ?)""",
-            (client_id, agent_id, segment, symbol, quantity, entry_date,
+               ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'OPEN', ?)""",
+            (client_id, agent_id, segment, symbol, quantity, expiry_date, entry_date,
              entry_price, entry_brokerage, entry_service_fee, remarks)
         )
         con.commit()

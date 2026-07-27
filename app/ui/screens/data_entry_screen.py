@@ -557,7 +557,8 @@ class DataEntryScreen(ctk.CTkFrame):
                         segment=row["segment"], symbol=row["symbol"],
                         quantity=row["quantity"], entry_date=row["entry_date"],
                         entry_price=row["price"], manual_brokerage=row["manual_fee"],
-                        entry_service_fee=row["entry_service_fee"], remarks=row["remarks"]
+                        entry_service_fee=row["entry_service_fee"], expiry_date=row["expiry_date"], 
+                        remarks=row["remarks"]
                     )
                 elif row["txn_type"] == "SELL":
                     trade_service.close_trade(

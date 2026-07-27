@@ -1,6 +1,3 @@
-# Ignore the entire tests folder
-tests/
-
 # Ignore specific files
 BrokerP_SRS_v2.md.pdf
 *.pdf

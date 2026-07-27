@@ -16,6 +16,7 @@ TABLE_DEFINITIONS = {
         client_id           INTEGER NOT NULL REFERENCES clients(client_id),
         agent_id            INTEGER NOT NULL REFERENCES agents(agent_id),
         segment             TEXT NOT NULL,
+        expiry_date         TEXT,
         symbol              TEXT NOT NULL,
         quantity            INTEGER NOT NULL,
         entry_date          TEXT NOT NULL,
