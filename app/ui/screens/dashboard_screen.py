@@ -239,12 +239,13 @@ class DashboardScreen(ctk.CTkFrame):
         if not self.current_snapshot:
             messagebox.showinfo("Nothing to export", "No open positions to export.")
             return
-            
+
+        target_date = self._selected_date()
         default_name = export_service.generate_filename(client.name, "DailySnapshot", "pdf")
         path = filedialog.asksaveasfilename(defaultextension=".pdf", filetypes=[("PDF file", "*.pdf")], initialfile=default_name)
         if not path: return
         try:
-            export_service.export_daily_snapshot_to_pdf(self.current_snapshot, client, path)
+            export_service.export_daily_snapshot_to_pdf(self.current_snapshot, client, target_date, path)
             messagebox.showinfo("Exported", f"Saved to {path}")
         except Exception as e: messagebox.showerror("Export failed", str(e))
 
@@ -257,12 +258,13 @@ class DashboardScreen(ctk.CTkFrame):
         if not self.current_snapshot:
             messagebox.showinfo("Nothing to export", "No open positions to export.")
             return
-            
+
+        target_date = self._selected_date()    
         default_name = export_service.generate_filename(client.name, "DailySnapshot", "xlsx")
         path = filedialog.asksaveasfilename(defaultextension=".xlsx", filetypes=[("Excel file", "*.xlsx")], initialfile=default_name)
         if not path: return
         try:
-            export_service.export_daily_snapshot_to_excel(self.current_snapshot, client, path)
+            export_service.export_daily_snapshot_to_excel(self.current_snapshot, client, target_date, path)
             messagebox.showinfo("Exported", f"Saved to {path}")
         except Exception as e: messagebox.showerror("Export failed", str(e))
 

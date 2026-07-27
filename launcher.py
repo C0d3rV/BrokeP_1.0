@@ -15,7 +15,7 @@ def resource_path(relative_path):
 
 def main():
     # Safely resolve font path for both normal run and compiled exe
-    font_path = resource_path(os.path.join("assets", "fonts", "Antic-Regular.ttf"))
+    font_path = resource_path(os.path.join("assets", "fonts", "Inter_18pt-Regular.ttf"))
     load_bundled_font(font_path)  # silently no-ops if the file is missing
 
     ctk.set_appearance_mode("light")

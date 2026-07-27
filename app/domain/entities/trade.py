@@ -8,7 +8,6 @@ class Trade:
     agent_id: int
     segment: str
     symbol: str
-    expiry_date: Optional[str]
     quantity: int
     entry_date: str
     entry_price: float
@@ -21,4 +20,5 @@ class Trade:
     exit_service_fee: Optional[float]
     gross_pl: Optional[float]
     net_pl: Optional[float]
+    expiry_date: Optional[str]
     remarks: Optional[str]

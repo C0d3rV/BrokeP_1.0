@@ -16,7 +16,6 @@ TABLE_DEFINITIONS = {
         client_id           INTEGER NOT NULL REFERENCES clients(client_id),
         agent_id            INTEGER NOT NULL REFERENCES agents(agent_id),
         segment             TEXT NOT NULL,
-        expiry_date         TEXT,
         symbol              TEXT NOT NULL,
         quantity            INTEGER NOT NULL,
         entry_date          TEXT NOT NULL,
@@ -30,6 +29,7 @@ TABLE_DEFINITIONS = {
         exit_service_fee    REAL DEFAULT 0,
         gross_pl            REAL,
         net_pl              REAL,
+        expiry_date         TEXT,
         remarks             TEXT
     """,
     "cash_transactions": """
