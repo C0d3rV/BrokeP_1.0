@@ -14,10 +14,10 @@ def open_trade(client_id: int, agent_id: int, segment: str, symbol: str,
     try:
         cursor.execute(
             """INSERT INTO trades (
-                   client_id, agent_id, segment, symbol, quantity, expiry_date,
-                   entry_date, entry_price, entry_brokerage, entry_service_fee,
-                   status, remarks
-               ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'OPEN', ?)""",
+                    client_id, agent_id, segment, symbol, quantity, expiry_date,
+                    entry_date, entry_price, entry_brokerage, entry_service_fee,
+                    status, remarks
+                 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'OPEN', ?)""",
             (client_id, agent_id, segment, symbol, quantity, expiry_date, entry_date,
              entry_price, entry_brokerage, entry_service_fee, remarks)
         )
@@ -28,8 +28,8 @@ def open_trade(client_id: int, agent_id: int, segment: str, symbol: str,
 
 
 def close_trade(trade_id: int, exit_date: str, exit_price: float,
-                 exit_brokerage: float, exit_service_fee: float,
-                 gross_pl: float, net_pl: float) -> None:
+                exit_brokerage: float, exit_service_fee: float,
+                gross_pl: float, net_pl: float) -> None:
     con, cursor = create_connection()
     try:
         cursor.execute(
@@ -50,7 +50,14 @@ def close_trade(trade_id: int, exit_date: str, exit_price: float,
 def get_trade_by_id(trade_id: int) -> Trade | None:
     con, cursor = create_connection()
     try:
-        cursor.execute("SELECT * FROM trades WHERE trade_id = ?", (trade_id,))
+        cursor.execute(
+            """SELECT trade_id, client_id, agent_id, segment, symbol, quantity, expiry_date,
+                      entry_date, entry_price, entry_brokerage, entry_service_fee,
+                      exit_date, exit_price, exit_brokerage, exit_service_fee,
+                      gross_pl, net_pl, status, remarks
+               FROM trades WHERE trade_id = ?""",
+            (trade_id,)
+        )
         row = cursor.fetchone()
         return _row_to_trade(row) if row else None
     finally:
@@ -61,7 +68,11 @@ def get_open_trades_for_client(client_id: int) -> list[Trade]:
     con, cursor = create_connection()
     try:
         cursor.execute(
-            "SELECT * FROM trades WHERE client_id = ? AND status = 'OPEN' ORDER BY entry_date",
+            """SELECT trade_id, client_id, agent_id, segment, symbol, quantity, expiry_date,
+                      entry_date, entry_price, entry_brokerage, entry_service_fee,
+                      exit_date, exit_price, exit_brokerage, exit_service_fee,
+                      gross_pl, net_pl, status, remarks
+               FROM trades WHERE client_id = ? AND status = 'OPEN' ORDER BY entry_date""",
             (client_id,)
         )
         return [_row_to_trade(r) for r in cursor.fetchall()]
@@ -73,7 +84,11 @@ def get_closed_trades_for_client(client_id: int) -> list[Trade]:
     con, cursor = create_connection()
     try:
         cursor.execute(
-            "SELECT * FROM trades WHERE client_id = ? AND status = 'CLOSED' ORDER BY exit_date",
+            """SELECT trade_id, client_id, agent_id, segment, symbol, quantity, expiry_date,
+                      entry_date, entry_price, entry_brokerage, entry_service_fee,
+                      exit_date, exit_price, exit_brokerage, exit_service_fee,
+                      gross_pl, net_pl, status, remarks
+               FROM trades WHERE client_id = ? AND status = 'CLOSED' ORDER BY exit_date""",
             (client_id,)
         )
         return [_row_to_trade(r) for r in cursor.fetchall()]
@@ -84,7 +99,13 @@ def get_closed_trades_for_client(client_id: int) -> list[Trade]:
 def get_all_open_trades() -> list[Trade]:
     con, cursor = create_connection()
     try:
-        cursor.execute("SELECT * FROM trades WHERE status = 'OPEN' ORDER BY entry_date")
+        cursor.execute(
+            """SELECT trade_id, client_id, agent_id, segment, symbol, quantity, expiry_date,
+                      entry_date, entry_price, entry_brokerage, entry_service_fee,
+                      exit_date, exit_price, exit_brokerage, exit_service_fee,
+                      gross_pl, net_pl, status, remarks
+               FROM trades WHERE status = 'OPEN' ORDER BY entry_date"""
+        )
         return [_row_to_trade(r) for r in cursor.fetchall()]
     finally:
         con.close()
@@ -93,7 +114,13 @@ def get_all_open_trades() -> list[Trade]:
 def get_all_closed_trades() -> list[Trade]:
     con, cursor = create_connection()
     try:
-        cursor.execute("SELECT * FROM trades WHERE status = 'CLOSED' ORDER BY exit_date")
+        cursor.execute(
+            """SELECT trade_id, client_id, agent_id, segment, symbol, quantity, expiry_date,
+                      entry_date, entry_price, entry_brokerage, entry_service_fee,
+                      exit_date, exit_price, exit_brokerage, exit_service_fee,
+                      gross_pl, net_pl, status, remarks
+               FROM trades WHERE status = 'CLOSED' ORDER BY exit_date"""
+        )
         return [_row_to_trade(r) for r in cursor.fetchall()]
     finally:
         con.close()
