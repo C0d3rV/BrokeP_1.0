@@ -16,8 +16,8 @@ Built to be **100% offline and highly lightweight**, BrokeP replaces bloated, cl
 * **Advanced P&L Analytics (MTM):** Moving beyond basic bookkeeping, the app automatically calculates Gross P&L, Net P&L, historical realized gains, and live unrealized gains based on daily Mark-to-Market (MTM) closing prices.
 * **Service Fee Bookkeeping:** Built-in calculation engines accurately process standard transactional costs, complex split-fee structures, and custom advisory or platform fees.
 * **Institutional-Grade Reporting:**
-* **PDF Exports:** Generate beautiful, cinematic-styled Daily Snapshots and Historical Trade Ledgers instantly.
-* **CSV Exports:** Dump raw, clean, unformatted trade data directly into CSV for external pivot tables and advanced spreadsheet analysis.
+    * **PDF Exports:** Generate beautiful, cinematic-styled Daily Snapshots and Historical Trade Ledgers instantly.
+    * **CSV Exports:** Dump raw, clean, unformatted trade data directly into CSV for external pivot tables and advanced spreadsheet analysis.
 
 
 
