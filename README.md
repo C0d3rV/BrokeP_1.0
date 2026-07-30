@@ -27,17 +27,19 @@ Built to be **100% offline and highly lightweight**, BrokeP replaces bloated, cl
 *(Note: The trades, symbols, clients, and financial figures shown in the screenshots below are for representational purposes only.)*
 
 ### Dashboard & Daily Mark-to-Market
-<img width="1920" height="1080" alt="Home page" src="https://github.com/user-attachments/assets/8fede410-1756-4493-9779-f490021f229c" />
+![Dashboard View](assets/images/Home-page.png)
+
+
 Provides a real-time snapshot of open positions, total capital invested, and unrealized P&L based on daily closing prices.
 
 
 ### Batch Trade Entry
-<img width="1920" height="1080" alt="Entry page" src="https://github.com/user-attachments/assets/484ab435-c762-476b-a99e-8872c8d31931" />
+![Trade Entry View](assets/images/Entry-page.png)
 A streamlined data entry interface for logging new trades, calculating fees, and staging pending batches before committing them to the ledger.
 
 
 ### Historical Reports & Exports
-<img width="1920" height="1080" alt="Report page" src="https://github.com/user-attachments/assets/977ee0b2-862b-492c-8a31-4a6eb709963c" />
+![Reports View](assets/images/Reports-page.png)
 Filter trades by client, segment, or date range to generate detailed ledger views. Instantly export data to clean CSVs or formatted PDFs.
 
 
