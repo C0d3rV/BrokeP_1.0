@@ -119,8 +119,10 @@ Once built, point **Inno Setup** to the generated `dist/BrokeP` directory to cre
 
 ## ⚖️ Legal Disclaimer
 
-**BrokeP is purely a technology solution for offline accounting and data management.**
-This software is not a registered financial institution or trading platform. It does not interface with live market exchanges to execute trades, nor does it hold, route, or manage real financial assets or client funds. BrokeP does not provide financial, investment, or legal advice. The application is provided "as is" for informational and bookkeeping purposes only. Users are solely responsible for ensuring that their application of this software—including the generation of invoices or calculation of service and advisory fees—fully complies with the applicable laws, regulatory frameworks, and licensing requirements in their local jurisdictions.
+**BrokeP is purely a technology solution for offline accounting and data management.** 
+This software is not a registered financial institution or trading platform. It does not interface with live market exchanges to execute trades, nor does it hold, route, or manage real financial assets or client funds. BrokeP does not provide financial, investment, or legal advice. The application is provided "as is" for informational and bookkeeping purposes only. Users are solely responsible for ensuring that their application of this software—including the generation of invoices or calculation of service and advisory fees—fully complies with the applicable laws, regulatory frameworks, and licensing requirements in their local jurisdictions. 
+
+**Non-Commercial Use Only:** BrokeP is provided strictly for personal, internal, or educational use. It is not authorized for commercial redistribution, resale, white-labeling, or to be offered as a hosted software-as-a-service (SaaS).
 
 *All sample data, ticker symbols, and financial figures displayed in promotional materials or screenshots are entirely fictional and for representational purposes only.*
 
@@ -128,4 +130,6 @@ This software is not a registered financial institution or trading platform. It 
 
 ## 📄 License
 
-Distributed under the MIT License. See `LICENSE` for more information.
+This project is released under a **Custom Non-Commercial License**. 
+
+You are free to download, install, and modify the software for your own personal or internal business bookkeeping. However, you may not redistribute, repackage, sell, or use the source code (or any compiled executables) for direct commercial gain or public commercial distribution without explicit written permission from the author.
